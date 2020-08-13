@@ -20,6 +20,18 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
 
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: ^1.13
+      id: go
+
+    - name: Build Dapper
+      run: |
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dapper.linux_amd64 github.com/shauncampbell/dapper/cmd/dapper
+        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o dapper.darwin_amd64 github.com/shauncampbell/dapper/cmd/dapper
+        CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o dapper.windows_amd64.exe github.com/shauncampbell/dapper/cmd/dapper
+
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:
