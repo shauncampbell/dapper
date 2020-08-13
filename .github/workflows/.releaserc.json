@@ -16,7 +16,7 @@
     [
       "@semantic-release/github",
       {
-        "assets": "*" 
+        "assets": "dapper.*"
       }
     ]
   ]
