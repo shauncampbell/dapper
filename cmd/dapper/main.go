@@ -1,11 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"os"
 )
 
 var (
@@ -16,17 +12,20 @@ var (
 	}
 
 	cfgFile    string
+	baseDN	   string
 
 )
 
 func init() {
-	cobra.OnInitialize(initConfig)
+	cobra.OnInitialize()
 
 	// Add flags to server command
 	serverCmd.PersistentFlags().IntVarP(&serverPort, "port", "p", 389, "port to run LDAP server on")
-
+	serverCmd.PersistentFlags().StringVarP(&baseDN, "base", "b", "", "the base DN for which this server will accept requests")
+	serverCmd.MarkPersistentFlagRequired("base")
 	// Add flags to the root command
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "f", "", "config file (default is $HOME/.dapper.yaml)")
+	rootCmd.MarkPersistentFlagRequired("config")
 
 	// Add the sub commands to the root
 	rootCmd.AddCommand(serverCmd)
@@ -34,32 +33,4 @@ func init() {
 
 func main() {
 	_ = rootCmd.Execute()
-}
-
-func initConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := homedir.Dir()
-		if err != nil {
-			er(err)
-		}
-
-		// Search config in home directory with name ".cobra" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".dapper")
-	}
-
-	viper.AutomaticEnv()
-
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
-	}
-}
-
-func er(msg interface{}) {
-	fmt.Println("Error:", msg)
-	os.Exit(1)
 }

@@ -1,0 +1,15 @@
+users:
+ - cn: user
+   dn: cn=user,ou=users,dc=home,dc=lab
+   uid: user
+   description: "home lab user"
+   objectClass:
+    - "inetOrgPerson"
+    - "jellyfinUser"
+   mail: user@home.lab
+   userPassword: "{SSHA}I8wq1+4gyJVJUtQW96JGcmCL46ADyPnW"
+ - cn: root
+   uid: root
+   dn: cn=root,dc=home,dc=lab
+   userPassword: "{SSHA}I8wq1+4gyJVJUtQW96JGcmCL46ADyPnW"
+   objectClass: "posixAccount"
