@@ -16,7 +16,11 @@
     [
       "@semantic-release/github",
       {
-        "assets": "dapper.*"
+        "assets": [
+          { "path":  "../../dapper.darwin_amd64", "label":  "Dapper for MacOS X (x64)"},
+          { "path":  "../../dapper.linux_amd64", "label":  "Dapper for Linux (x64)"},
+          { "path":  "../../dapper.windows_amd64.exe", "label":  "Dapper for Windows (x64)"}
+        ]
       }
     ]
   ]
