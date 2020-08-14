@@ -31,7 +31,7 @@ users:
 ```
 3. Start the dapper service:
 ```
-./dapper -f dapper.yaml -b dc=home,dc=lab -p 3389
+./dapper service -f dapper.yaml -b dc=home,dc=lab -p 3389
 ```
 4. Test with `ldapsearch`
 ```
