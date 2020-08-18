@@ -45,7 +45,7 @@ func NewServer(baseDN, configFile string, port int) *Server {
 func (s *Server) Listen() error {
 	// start the server
 	listen := fmt.Sprintf("0.0.0.0:%d", s.port)
-	s.logger.Info().Msgf("starting LDAP server on %s", listen)
+	s.logger.Info().Msgf("starting LDAP server on %s for %s", listen, s.baseDN)
 
 	// Start waiting for configuration changes
 	go s.WatchForConfigChanges()
