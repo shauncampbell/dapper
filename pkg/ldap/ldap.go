@@ -8,7 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 	query "github.com/shauncampbell/dapper/pkg/query"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
+	"io"
 	"net"
 	"os"
 	"strings"
@@ -111,21 +111,15 @@ func parseAttributeValues(v interface{}) ([]string, bool) {
 }
 
 // parseUser parses the user record from the yaml file.
-func parseUser(dn string, user map[interface{}]interface{}, logger zerolog.Logger) (*ldap.Entry, error) {
+func parseUser(dn string, user map[string]interface{}, logger zerolog.Logger) (*ldap.Entry, error) {
 	entry := &ldap.Entry{
 		DN:         dn,
 		Attributes: make([]*ldap.EntryAttribute, 0),
 	}
 
-	for k, v := range user {
+	for name, v := range user {
 		// skip the dn key as we already know about that one.
-		if k == dn {
-			continue
-		}
-
-		name, ok := k.(string)
-		if !ok {
-			logger.Warn().Msgf("skipping attribute dn '%s' because there is no valid name", dn)
+		if name == dn {
 			continue
 		}
 
@@ -158,7 +152,7 @@ func parseUser(dn string, user map[interface{}]interface{}, logger zerolog.Logge
 func parseUsers(users []interface{}, logger zerolog.Logger) ([]*ldap.Entry, error) {
 	entries := make([]*ldap.Entry, 0)
 	for _, user := range users {
-		if u, ok := user.(map[interface{}]interface{}); ok {
+		if u, ok := user.(map[string]interface{}); ok {
 			if dn, ok := u["dn"].(string); ok {
 				entry, err := parseUser(dn, u, logger)
 				if err == nil {
@@ -176,34 +170,41 @@ func parseUsers(users []interface{}, logger zerolog.Logger) ([]*ldap.Entry, erro
 // ReloadConfiguration reads the configuration file and applies the changes.
 func (s *Server) ReloadConfiguration(filename string) {
 	s.logger.Info().Msgf("reloading configuration file '%s'", filename)
-	yamlFile, err := ioutil.ReadFile(filename)
+	yamlFile, err := os.Open(filename)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("failed to read file")
 		return
 	}
-	var c map[string]interface{}
-	err = yaml.Unmarshal(yamlFile, &c)
-	if err != nil {
-		s.logger.Error().Err(err).Msg("failed to unmarshall file")
-		return
+	var users []interface{}
+
+	decoder := yaml.NewDecoder(yamlFile)
+	for {
+		var user map[string]interface{}
+		err = decoder.Decode(&user)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			s.logger.Error().Err(err).Msg("failed to unmarshall file")
+			continue
+		}
+
+		users = append(users, user)
 	}
 
 	// extract users
-	if c["users"] != nil {
-		var entries []*ldap.Entry
-		if users, ok := c["users"].([]interface{}); ok {
-			entries, err = parseUsers(users, s.logger)
-			if err != nil {
-				s.logger.Error().Err(err).Msg("failed to parse users")
-				return
-			}
-		}
+	var entries []*ldap.Entry
 
-		if entries != nil {
-			s.lock.Lock()
-			s.entries = entries
-			defer s.lock.Unlock()
-		}
+	entries, err = parseUsers(users, s.logger)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to parse users")
+		return
+	}
+
+	if entries != nil {
+		s.lock.Lock()
+		s.entries = entries
+		defer s.lock.Unlock()
 	}
 }
 

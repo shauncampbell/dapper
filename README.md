@@ -12,26 +12,25 @@ Dapper is a work in progress and this isn't designed to be used in a production 
 1. Download the binary from the [releases](https://github.com/shauncampbell/dapper/releases) page.
 2. Write a sample configuration file and save it as dapper.yaml: 
 ```
-users:
- - cn: user
-   dn: cn=user,ou=users,dc=home,dc=lab
-   uid: user
-   description: "home lab user"
-   objectClass:
-    - "inetOrgPerson"
-    - "jellyfinUser"
-   mail: user@home.lab
-   userPassword: "{SSHA}I8wq1+4gyJVJUtQW96JGcmCL46ADyPnW"
- - cn: root
-   uid: root
-   dn: cn=root,dc=home,dc=lab
-   userPassword: "{SSHA}I8wq1+4gyJVJUtQW96JGcmCL46ADyPnW"
-   objectClass: "posixAccount"
-
+cn: user
+dn: cn=user,ou=users,dc=home,dc=lab
+uid: user
+description: "home lab user"
+objectClass:
+  - "inetOrgPerson"
+  - "jellyfinUser"
+mail: user@home.lab
+userPassword: "{SSHA}I8wq1+4gyJVJUtQW96JGcmCL46ADyPnW"
+----
+cn: root
+uid: root
+dn: cn=root,dc=home,dc=lab
+userPassword: "{SSHA}I8wq1+4gyJVJUtQW96JGcmCL46ADyPnW"
+objectClass: "posixAccount"
 ```
 3. Start the dapper service:
 ```
-./dapper service -f dapper.yaml -b dc=home,dc=lab -p 3389
+./dapper server -f dapper.yaml -b dc=home,dc=lab -p 3389
 ```
 4. Test with `ldapsearch`
 ```
