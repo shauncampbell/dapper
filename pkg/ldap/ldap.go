@@ -22,7 +22,7 @@ type Server struct {
 	baseDN     string         // The baseDN that the LDAP server will service
 	configFile string         // The configFile containing the config for the server
 	s          *ldap.Server   // The underlying ldap.Server implementation
-	logger     zerolog.Logger // The logger being used for console printing
+	Logger     zerolog.Logger // The logger being used for console printing
 	lock       sync.Mutex     // A lock to prevent multiple updates clashing
 	entries    []*ldap.Entry  // The ldap entries read from the configuration file
 }
@@ -30,7 +30,7 @@ type Server struct {
 // NewServer creates a new server instance which manages a given baseDN and stores
 // user information in the specified configFile.
 func NewServer(baseDN, configFile string, port int) *Server {
-	server := &Server{baseDN: baseDN, configFile: configFile, port: port, logger: log.Output(zerolog.ConsoleWriter{Out: os.Stderr})}
+	server := &Server{baseDN: baseDN, configFile: configFile, port: port, Logger: log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.InfoLevel)}
 	s := ldap.NewServer()
 	server.s = s
 
@@ -45,7 +45,8 @@ func NewServer(baseDN, configFile string, port int) *Server {
 func (s *Server) Listen() error {
 	// start the server
 	listen := fmt.Sprintf("0.0.0.0:%d", s.port)
-	s.logger.Info().Msgf("starting LDAP server on %s for %s", listen, s.baseDN)
+	s.Logger = s.Logger.Level(zerolog.DebugLevel)
+	s.Logger.Info().Msgf("starting LDAP server on %s for %s", listen, s.baseDN)
 
 	// Start waiting for configuration changes
 	go s.WatchForConfigChanges()
@@ -73,7 +74,7 @@ func (s *Server) WatchForConfigChanges() {
 			case event := <-w.Event:
 				s.ReloadConfiguration(event.Path)
 			case err := <-w.Error:
-				s.logger.Err(err)
+				s.Logger.Err(err)
 			case <-w.Closed:
 				return
 			}
@@ -81,12 +82,12 @@ func (s *Server) WatchForConfigChanges() {
 	}()
 	// Watch this file for changes.
 	if err := w.Add(s.configFile); err != nil {
-		s.logger.Error().Err(err)
+		s.Logger.Error().Err(err)
 		return
 	}
 
 	if err := w.Start(10 * time.Second); err != nil {
-		s.logger.Error().Err(err)
+		s.Logger.Error().Err(err)
 		return
 	}
 }
@@ -141,7 +142,7 @@ func parseUser(dn string, user map[string]interface{}, logger zerolog.Logger) (*
 			}
 		}
 
-		logger.Info().Str("dn", dn).Str("attribute", name).Strs("value", value).Msgf("adding attribute")
+		logger.Debug().Str("dn", dn).Str("attribute", name).Strs("value", value).Msgf("adding attribute")
 
 		entry.Attributes = append(entry.Attributes, &ldap.EntryAttribute{Name: name, Values: value})
 	}
@@ -169,10 +170,10 @@ func parseUsers(users []interface{}, logger zerolog.Logger) ([]*ldap.Entry, erro
 
 // ReloadConfiguration reads the configuration file and applies the changes.
 func (s *Server) ReloadConfiguration(filename string) {
-	s.logger.Info().Msgf("reloading configuration file '%s'", filename)
+	s.Logger.Debug().Msgf("reloading configuration file '%s'", filename)
 	yamlFile, err := os.Open(filename)
 	if err != nil {
-		s.logger.Error().Err(err).Msg("failed to read file")
+		s.Logger.Error().Err(err).Msg("failed to read file")
 		return
 	}
 	var users []interface{}
@@ -185,7 +186,7 @@ func (s *Server) ReloadConfiguration(filename string) {
 			if err == io.EOF {
 				break
 			}
-			s.logger.Error().Err(err).Msg("failed to unmarshall file")
+			s.Logger.Error().Err(err).Msg("failed to unmarshall file")
 			continue
 		}
 
@@ -195,9 +196,9 @@ func (s *Server) ReloadConfiguration(filename string) {
 	// extract users
 	var entries []*ldap.Entry
 
-	entries, err = parseUsers(users, s.logger)
+	entries, err = parseUsers(users, s.Logger)
 	if err != nil {
-		s.logger.Error().Err(err).Msg("failed to parse users")
+		s.Logger.Error().Err(err).Msg("failed to parse users")
 		return
 	}
 
@@ -227,14 +228,14 @@ func parsePassword(password string) (string, error) {
 
 // Bind is a handler for an incoming bind request.
 func (s *Server) Bind(bindDN, bindSimplePw string, conn net.Conn) (ldap.LDAPResultCode, error) {
-	logger := s.logger.With().Str("operation", "bind").Str("request_ip", conn.RemoteAddr().String()).Str("bindDN", bindDN).Logger()
-	logger.Info().Msgf("request received")
+	logger := s.Logger.With().Str("operation", "bind").Str("request_ip", conn.RemoteAddr().String()).Str("bindDN", bindDN).Logger()
+	logger.Debug().Msgf("request received")
 	for _, entry := range s.entries {
 		if entry.DN == bindDN {
 			encoder := SSHAEncoder{}
 			pwd := entry.GetAttributeValue("userPassword")
 			if encoder.Matches([]byte(pwd), []byte(bindSimplePw)) {
-				logger.Info().Msgf("bind request was accepted")
+				logger.Debug().Msgf("bind request was accepted")
 				return ldap.LDAPResultSuccess, nil
 			}
 			logger.Error().Msgf("bind request was rejected because of an invalid password")
@@ -248,10 +249,10 @@ func (s *Server) Bind(bindDN, bindSimplePw string, conn net.Conn) (ldap.LDAPResu
 
 // Search is a handler for an incoming search request.
 func (s *Server) Search(boundDN string, searchReq ldap.SearchRequest, conn net.Conn) (ldap.ServerSearchResult, error) {
-	logger := s.logger.With().Str("operation", "search").Str("request_ip", conn.RemoteAddr().String()).Str("bindDN", boundDN).Logger()
+	logger := s.Logger.With().Str("operation", "search").Str("request_ip", conn.RemoteAddr().String()).Str("bindDN", boundDN).Logger()
 
 	// Parse the search query
-	logger.Info().Msgf("beginning search with query: %s", searchReq.Filter)
+	logger.Debug().Msgf("beginning search with query: %s", searchReq.Filter)
 	q, _, err := query.Parse(searchReq.Filter, 0)
 	if err != nil {
 		logger.Error().Err(err).Msgf("the client submitted an invalid query: %s", searchReq.Filter)
@@ -261,11 +262,28 @@ func (s *Server) Search(boundDN string, searchReq ldap.SearchRequest, conn net.C
 	var result = make([]*ldap.Entry, 0)
 	for _, entry := range s.entries {
 		if q.Evaluate(entry) {
-			logger.Info().Msgf("dn '%s' matches search criteria", entry.DN)
+			logger.Debug().Msgf("dn '%s' matches search criteria", entry.DN)
 			result = append(result, entry)
 		}
 	}
-	logger.Info().Msgf("search completed with %d results", len(result))
+	logger.Debug().Msgf("search completed with %d results", len(result))
 
 	return ldap.ServerSearchResult{Entries: result, Referrals: []string{}, Controls: []ldap.Control{}, ResultCode: ldap.LDAPResultSuccess}, nil
+}
+
+func (s *Server) SearchInternal(queryStr string) ([]*ldap.Entry, error) {
+	q, _, err := query.Parse(queryStr, 0)
+	if err != nil {
+		s.Logger.Error().Err(err).Msgf("the client submitted an invalid query: %s", queryStr)
+		return nil, err
+	}
+
+	var result = make([]*ldap.Entry, 0)
+	for _, entry := range s.entries {
+		if q.Evaluate(entry) {
+			result = append(result, entry)
+		}
+	}
+
+	return result, nil
 }

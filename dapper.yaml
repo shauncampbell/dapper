@@ -3,9 +3,12 @@ dn: cn=user,ou=users,dc=home,dc=lab
 uid: user
 description: "home lab user"
 objectClass:
+  - "posixAccount"
   - "inetOrgPerson"
   - "jellyfinUser"
 mail: user@home.lab
+givenName: Homelab
+sn: User
 userPassword: "{SSHA}I8wq1+4gyJVJUtQW96JGcmCL46ADyPnW"
 ---
 cn: root
@@ -13,4 +16,5 @@ uid: root
 dn: cn=root,dc=home,dc=lab
 userPassword: "{SSHA}I8wq1+4gyJVJUtQW96JGcmCL46ADyPnW"
 objectClass: "posixAccount"
-
+givenName: Root
+sn: User
